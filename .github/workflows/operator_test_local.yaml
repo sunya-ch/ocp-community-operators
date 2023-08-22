@@ -1,0 +1,134 @@
+name: Operator test
+
+
+on:
+  push:
+    branches:
+      - multi-nic-cni-test
+
+env:
+  OPP_DEBUG: 1
+  OPP_CONTAINER_OPT: "-t"
+  OPP_SCRIPT_URL: "https://raw.githubusercontent.com/redhat-openshift-ecosystem/community-operators-pipeline/ci/latest/ci/scripts/opp.sh"
+  OPP_SCRIPT_ENV_URL: "https://raw.githubusercontent.com/redhat-openshift-ecosystem/community-operators-pipeline/ci/latest/ci/scripts/opp-env.sh"
+  OPP_SCRIPT_ENV_OPRT_URL: "https://raw.githubusercontent.com/redhat-openshift-ecosystem/community-operators-pipeline/ci/latest/ci/scripts/opp-oprt.sh"
+  OPP_IMAGE: "quay.io/operator_testing/operator-test-playbooks:latest"
+  OPP_ANSIBLE_PULL_REPO: "https://github.com/redhat-openshift-ecosystem/operator-test-playbooks"
+  OPP_ANSIBLE_PULL_BRANCH: "upstream-community"
+  OPP_THIS_REPO_BASE: "https://github.com"
+  OPP_THIS_REPO: "redhat-openshift-ecosystem/community-operators-prod"
+  OPP_THIS_REPO_NAME: "community-operators-prod"
+  OPP_THIS_REPO_ORG: "redhat-openshift-ecosystem"
+  OPP_THIS_BRANCH: "main"
+  OPP_RELEASE_BUNDLE_REGISTRY: "quay.io"
+  OPP_RELEASE_BUNDLE_ORGANIZATION: "openshift-community-operators"
+  OPP_RELEASE_INDEX_REGISTRY: "quay.io"
+  OPP_RELEASE_INDEX_ORGANIZATION: "openshift-community-operators"
+  OPP_RELEASE_INDEX_NAME: "catalog_tmp"
+  OPP_MIRROR_INDEX_MULTIARCH_BASE: "registry.redhat.io/openshift4/ose-operator-registry"
+  OPP_MULTIARCH_SUPPORTED_VERSIONS: "v4.5 v4.6 v4.7 v4.8 v4.9 v4.10 v4.11 v4.12"
+  OPP_MIRROR_INDEX_MULTIARCH_POSTFIX: "s"
+# IIB_INPUT_REGISTRY_USER: "12742415|community-operators-pipeline"
+  OPP_PROD: 0
+  OPP_DRY_RUN: 0
+  # TODO handle config
+  OPP_PACKAGEMANIFEST_DISABLED: "1"
+  KIND_VERSION: "v0.19.0"
+  KIND_KUBE_VERSION_LATEST: "v1.27.1"
+  OPP_PRODUCTION_TYPE: "ocp"
+  OPP_REVIEWERS_ENABLED: 1
+  OPP_FORCE_DEPLOY_ON_K8S_OPENSHIFT_VERSION: 4.10
+  OPP_STREAM: "operators"
+#  ARTEFACT_PATH: "/tmp/operator-test" #hardcoded for now
+#  IIB_INPUT_REGISTRY_TOKEN: ${{ secrets.IIB_INPUT_REGISTRY_TOKEN }}
+
+jobs:
+
+  test-kiwi:
+    name: "kiwi / Full operator test"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Operator test
+        id: operator-test
+        env:
+          OPP_LABELS: "${{ join(github.event.pull_request.labels.*.name, ' ') }}"
+          OPP_NAME: "multi-nic-cni-operator"
+        run: |
+          echo "kiwi operators/${OPP_NAME} 1.0.4/1.0.5/1.1.0/1.2.0"
+          bash <(curl -sL $OPP_SCRIPT_URL) kiwi "operators/${OPP_NAME}/1.0.4"
+          bash <(curl -sL $OPP_SCRIPT_URL) kiwi "operators/${OPP_NAME}/1.0.5"
+          bash <(curl -sL $OPP_SCRIPT_URL) kiwi "operators/${OPP_NAME}/1.1.0"
+          bash <(curl -sL $OPP_SCRIPT_URL) kiwi "operators/${OPP_NAME}/1.2.0"
+
+  test-lemon-openshift:
+    name: "lemon / Deploy from scratch"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        index-tag: ['v4.10-db', 'v4.11', 'v4.12', 'v4.13', 'v4.14-rc']
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Operator test
+        env:
+          OPP_LABELS: "${{ join(github.event.pull_request.labels.*.name, ' ') }}"
+          OPERATOR_INDEX_TAG: ${{ matrix.index-tag }}
+          OPP_NAME: "multi-nic-cni-operator"
+        run: |
+          echo "lemon_${OPERATOR_INDEX_TAG} operators/${OPP_NAME} 1.0.4/1.0.5/1.1.0/1.2.0"
+          bash <(curl -sL $OPP_SCRIPT_URL) lemon_${OPERATOR_INDEX_TAG} "operators/${OPP_NAME}/1.0.4"
+          bash <(curl -sL $OPP_SCRIPT_URL) lemon_${OPERATOR_INDEX_TAG} "operators/${OPP_NAME}/1.0.5"
+          bash <(curl -sL $OPP_SCRIPT_URL) lemon_${OPERATOR_INDEX_TAG} "operators/${OPP_NAME}/1.1.0"
+          bash <(curl -sL $OPP_SCRIPT_URL) lemon_${OPERATOR_INDEX_TAG} "operators/${OPP_NAME}/1.2.0"
+
+  test-orange-openshift:
+    name: "orange / Deploy o7t"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        index-tag: ['v4.10-db', 'v4.11', 'v4.12', 'v4.13', 'v4.14-rc']
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Operator test
+        env:
+          OPP_LABELS: "${{ join(github.event.pull_request.labels.*.name, ' ') }}"
+          OPERATOR_INDEX_TAG: ${{ matrix.index-tag }}
+          OPP_NAME: "multi-nic-cni-operator"
+        run: |
+          echo "orange_${OPERATOR_INDEX_TAG} operators/${OPP_NAME} 1.0.4/1.0.5/1.1.0/1.2.0"
+          bash <(curl -sL $OPP_SCRIPT_URL) orange_${OPERATOR_INDEX_TAG} "operators/${OPP_NAME}/1.0.4"
+          bash <(curl -sL $OPP_SCRIPT_URL) orange_${OPERATOR_INDEX_TAG} "operators/${OPP_NAME}/1.0.5"
+          bash <(curl -sL $OPP_SCRIPT_URL) orange_${OPERATOR_INDEX_TAG} "operators/${OPP_NAME}/1.1.0"
+          bash <(curl -sL $OPP_SCRIPT_URL) orange_${OPERATOR_INDEX_TAG} "operators/${OPP_NAME}/1.2.0"
+
+  # test-orange-openshift:
+  #   name: "orange / Deploy o7t"
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     matrix:
+  #       index-tag: ['v4.8-db', 'v4.9-db', 'v4.10-db', 'v4.11', 'v4.12']
+
+  #     fail-fast: false
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v2
+  #     - name: Operator test
+  #       env:
+  #         OPP_LABELS: "${{ join(github.event.pull_request.labels.*.name, ' ') }}"
+  #         OPP_AUTO_PACKAGEMANIFEST_CLUSTER_VERSION_LABEL: "${{ needs.pr-check.outputs.opp_auto_packagemanifest_cluster_version_label }}"
+  #         OPERATOR_INDEX_TAG: ${{ matrix.index-tag }}
+  #         OPP_MIRROR_INDEX_ENABLED: 1
+  #         OPP_IIB_INSTALL: 0
+  #         OPP_INSTALLATION_SKIP: "${{ needs.pr-check.outputs.opp_installation_skipped }}"
+  #         OPP_NAME: "multi-nic-cni-operator"
+  #         OPP_VERSION: "1.0.3"
+  #       run: |
+  #         echo "orange_${OPERATOR_INDEX_TAG} operators/${OPP_NAME}/${OPP_VERSION}"
+  #         bash <(curl -sL $OPP_SCRIPT_URL) orange_${OPERATOR_INDEX_TAG} "operators/${OPP_NAME}/${OPP_VERSION}"
